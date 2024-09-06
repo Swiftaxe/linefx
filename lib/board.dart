@@ -58,18 +58,18 @@ Stream<List<List<Point>>> get _point$ => _streamer.stream;
                       segment.skip(max(0, segment.length - maxPoints)).toList())
                   .toList()),
           builder: (_, stream) =>
-              CustomPaint(size: size, painter: Painter(stream.data)), // stream shall refer to current stream
+              CustomPaint(size: size, painter: Painter(stream.data!)), // stream shall refer to current stream
         ),
   );
 
   // update the points and add them to the stream
   void _updatePoints() {
     _segments = _segments
-      .map((segment) => segment
+        .map((segment) => segment
         .where((element) => element.active)
         // apply position and force
         .map((element) => element.update())
-        .toList());
+        .toList()).toList();
     _streamer.add(_segments);
   }
 
