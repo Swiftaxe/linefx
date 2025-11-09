@@ -34,7 +34,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  leak_tracker: ^10.0.5
+  leak_tracker: ^11.0.2
   leak_tracker_flutter_testing: ^3.0.5
   string_scanner: ^1.2.0
   vm_service: ^14.2.4

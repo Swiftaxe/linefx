@@ -15,19 +15,19 @@ List<List<Point>> _segments = [[]];
 final StreamController<List<List<Point>>> _streamer =
     StreamController<List<List<Point>>>.broadcast()..add([<Point>[]]);
 Stream<List<List<Point>>> get _point$ => _streamer.stream;
+late AnimationController _animationController;
 
   @override
   void initState() {
+    super.initState();
     // start a looped animation and add a listener : `_updatePoints`
-    AnimationController(
+    _animationController = AnimationController(
         vsync: this,
         duration: Duration(seconds: 1),
         lowerBound: 0,
         upperBound: 1)
       ..repeat()
       ..addListener(_updatePoints);
-
-    super.initState();
   }
 
   @override
@@ -75,6 +75,7 @@ Stream<List<List<Point>>> get _point$ => _streamer.stream;
 
   @override
   void dispose() {
+    _animationController.dispose();
     _streamer.close();
     super.dispose();
   }
