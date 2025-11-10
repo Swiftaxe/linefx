@@ -30,6 +30,7 @@ dependencies:
   cupertino_icons: ^1.0.0
   collection: ^1.18.0
   material_color_utilities: ^0.11.1
+  flutter_riverpod: ^3.0.3
 
 dev_dependencies:
   flutter_test:
@@ -37,7 +38,7 @@ dev_dependencies:
   leak_tracker: ^11.0.2
   leak_tracker_flutter_testing: ^3.0.5
   string_scanner: ^1.2.0
-  vm_service: ^14.2.4
+  vm_service: ^15.0.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
