@@ -1,9 +1,12 @@
+import 'dart:ui';
+
+import 'package:algrafx/features/board/drawing/point_animator.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
 import 'constants.dart';
-import 'painter.dart';
-import 'point.dart';
+import 'features/board/drawing/painter.dart';
+import 'features/board/drawing/point.dart';
 
 class Board extends StatefulWidget {
   @override
@@ -17,9 +20,18 @@ final StreamController<List<List<Point>>> _streamer =
 Stream<List<List<Point>>> get _point$ => _streamer.stream;
 late AnimationController _animationController;
 
+final size = window.physicalSize / window.devicePixelRatio;
+
+late final PointAnimator _pointAnimator;
+
   @override
   void initState() {
     super.initState();
+
+    _pointAnimator = PointAnimator(
+      maxHeight: size.height,
+    );
+
     // start a looped animation and add a listener : `_updatePoints`
     _animationController = AnimationController(
         vsync: this,
@@ -64,12 +76,7 @@ late AnimationController _animationController;
 
   // update the points and add them to the stream
   void _updatePoints() {
-    _segments = _segments
-        .map((segment) => segment
-        .where((element) => element.active)
-        // apply position and force
-        .map((element) => element.update())
-        .toList()).toList();
+    _segments = _pointAnimator.updatePoints(_segments);
     _streamer.add(_segments);
   }
 

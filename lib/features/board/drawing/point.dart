@@ -1,5 +1,4 @@
 import 'dart:ui';
-import 'constants.dart';
 
 class Point {
   final Offset offset;
@@ -10,10 +9,17 @@ class Point {
 
   const Point(this.offset, this.force, [this.active = true]);
 
-  Point update() {
-    return active
-        ? Point(offset + force, force * acceleration, offset.dy < size.height)
-        : zero;
+  Point update({
+    required double acceleration,
+    required double maxHeight,
+  }) {
+    if (!active) return zero;
+    
+    final newOffset = offset + force;
+    final newForce = force * acceleration;
+    final stillActive = newOffset.dy < maxHeight;
+    
+    return Point(newOffset, newForce, stillActive);
   }
 
   @override
