@@ -19,25 +19,30 @@ class BoardNotifier extends Notifier<BoardState> {
   // Add a point to the current segment
   void addPoint(Point point) {
     final updatedSegments = <List<Point>>[];
+    final imprintSegments = <List<Point>>[];
     for (int i = 0; i < state.segments.length; i++) {
       if (i == state.segments.length - 1) {
         // Last segment - add the point
         updatedSegments.add([...state.segments[i], point]);
+        imprintSegments.add([...state.imprintSegments[i], point]);
       } else {
         updatedSegments.add(state.segments[i]);
+        imprintSegments.add(state.imprintSegments[i]);
       }
     }
-    state = BoardState(segments: updatedSegments);
+    state = BoardState(segments: updatedSegments, imprintSegments: imprintSegments);
   }
 
   void startNewSegment() {
     final updatedSegments = <List<Point>>[...state.segments, []];
-    state = BoardState(segments: updatedSegments);
+    final imprintSegments = <List<Point>>[...state.imprintSegments, []];
+    state = BoardState(segments: updatedSegments, imprintSegments: imprintSegments);
   }
 
   void updatePoints() {
     final updatedSegments = _pointAnimator.updatePoints(state.segments);
-    state = BoardState(segments: updatedSegments);
+    // Imprints should NEVER animate - they stay frozen!
+    state = BoardState(segments: updatedSegments, imprintSegments: state.imprintSegments);
   }
 
   List<List<Point>> getCappedSegments() {

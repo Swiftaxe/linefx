@@ -36,6 +36,7 @@ class _BoardState extends ConsumerState<Board> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(boardNotifierProvider);
     final segments = ref.watch(cappedSegmentsProvider);
 
     return Listener(
@@ -57,7 +58,7 @@ class _BoardState extends ConsumerState<Board> with SingleTickerProviderStateMix
       },
       child: CustomPaint(
         size: size,
-        painter: Painter(segments),
+        painter: Painter(segments, state.imprintSegments),
       ),
     );
   }

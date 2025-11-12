@@ -24,7 +24,7 @@ void main() {
   group('Painter', () {
     test('given empty segments when paint then does not throw', () {
       // given
-      final painter = Painter([]);
+      final painter = Painter([], []);
       final canvas = MockCanvas();
       final size = Size(100, 100);
 
@@ -41,7 +41,7 @@ void main() {
           Point(Offset(30, 40), Offset.zero),
         ]
       ];
-      final painter = Painter(segments);
+      final painter = Painter(segments, []);
       final canvas = MockCanvas();
       final size = Size(100, 100);
 
@@ -67,7 +67,7 @@ void main() {
           Point(Offset(50, 60), Offset.zero),
         ]
       ];
-      final painter = Painter(segments);
+      final painter = Painter(segments, []);
       final canvas = MockCanvas();
       final size = Size(100, 100);
 
@@ -95,7 +95,7 @@ void main() {
         [Point(Offset(10, 20), Offset.zero)],
         [Point(Offset(30, 40), Offset.zero)],
       ];
-      final painter = Painter(segments);
+      final painter = Painter(segments, []);
       final canvas = MockCanvas();
       final size = Size(100, 100);
 
@@ -116,8 +116,11 @@ void main() {
       final segments = [
         [Point(Offset(10, 20), Offset.zero)]
       ];
-      final painter1 = Painter(segments);
-      final painter2 = Painter(segments);
+      final imprints = [
+        [Point(Offset(10, 20), Offset.zero)]
+      ];
+      final painter1 = Painter(segments, imprints);
+      final painter2 = Painter(segments, imprints);
 
       // when
       final result = painter1.shouldRepaint(painter2);
@@ -134,8 +137,9 @@ void main() {
       final segments2 = [
         [Point(Offset(30, 40), Offset.zero)]
       ];
-      final painter1 = Painter(segments1);
-      final painter2 = Painter(segments2);
+      final List<List<Point>> imprints = [[]];
+      final painter1 = Painter(segments1, imprints);
+      final painter2 = Painter(segments2, imprints);
 
       // when
       final result = painter1.shouldRepaint(painter2);
@@ -146,16 +150,59 @@ void main() {
 
     test('given empty segments when shouldRepaint then returns false', () {
       // given
-      final painter1 = Painter([]);
+      final painter1 = Painter([], []);
       final painter2 = Painter([
         [Point(Offset(10, 20), Offset.zero)]
-      ]);
+      ], []);
 
       // when
       final result = painter1.shouldRepaint(painter2);
 
       // then
       expect(result, isFalse);
+    });
+
+    test('given imprints when paint then draws imprints before segments', () {
+      // given
+      final segments = [
+        [Point(Offset(50, 60), Offset.zero)]
+      ];
+      final imprints = [
+        [Point(Offset(10, 20), Offset.zero)]
+      ];
+      final painter = Painter(segments, imprints);
+      final canvas = MockCanvas();
+      final size = Size(100, 100);
+
+      // when
+      painter.paint(canvas, size);
+
+      // then - Should draw both imprints and segments
+      expect(
+        canvas.calls.where((call) => call.startsWith('drawCircle')),
+        hasLength(2),
+      );
+      expect(canvas.calls, contains('drawCircle(Offset(10.0, 20.0), 3.0)'));
+      expect(canvas.calls, contains('drawCircle(Offset(50.0, 60.0), 3.0)'));
+    });
+
+    test('given different imprints when shouldRepaint then returns true', () {
+      // given
+      final List<List<Point>> segments = [[]];
+      final imprints1 = [
+        [Point(Offset(10, 20), Offset.zero)]
+      ];
+      final imprints2 = [
+        [Point(Offset(30, 40), Offset.zero)]
+      ];
+      final painter1 = Painter(segments, imprints1);
+      final painter2 = Painter(segments, imprints2);
+
+      // when
+      final result = painter1.shouldRepaint(painter2);
+
+      // then
+      expect(result, isTrue);
     });
   });
 }
