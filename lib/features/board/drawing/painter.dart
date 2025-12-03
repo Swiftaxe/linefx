@@ -17,8 +17,15 @@ class Painter extends CustomPainter {
 
   final List<List<Point>> segments;
   final List<List<Point>> imprints;
+  final Offset imprintOffset;
+  final double imprintOpacity;
 
-  const Painter(this.segments, this.imprints);
+  const Painter(
+    this.segments,
+    this.imprints, {
+    this.imprintOffset = Offset.zero,
+    this.imprintOpacity = 1.0,
+  });
 
   void paintSegments(Canvas canvas, List<List<Point>> segments, Paint fill, Paint stroke) {
     if (segments.isEmpty) return;
@@ -34,12 +41,30 @@ class Painter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    paintSegments(canvas, imprints, imprintFill, imprintStroke);
+    // Paint imprints with transform and opacity
+    if (imprints.isNotEmpty && imprintOpacity > 0) {
+      canvas.save();
+      canvas.translate(imprintOffset.dx, imprintOffset.dy);
+      
+      final imprintFillWithOpacity = Paint()
+        ..color = imprintFill.color.withOpacity(imprintOpacity);
+      final imprintStrokeWithOpacity = Paint()
+        ..color = imprintStroke.color.withOpacity(imprintOpacity)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6;
+      
+      paintSegments(canvas, imprints, imprintFillWithOpacity, imprintStrokeWithOpacity);
+      canvas.restore();
+    }
+
+    // Paint active segments (no transform)
     paintSegments(canvas, segments, fill, stroke);
   }
 
   @override
   bool shouldRepaint(Painter oldDelegate) =>
-      segments.isNotEmpty && !listEquals(segments, oldDelegate.segments) || imprints.isNotEmpty && !listEquals(imprints, oldDelegate.imprints);
-
+      !listEquals(segments, oldDelegate.segments) ||
+      !listEquals(imprints, oldDelegate.imprints) ||
+      imprintOffset != oldDelegate.imprintOffset ||
+      imprintOpacity != oldDelegate.imprintOpacity;
 }

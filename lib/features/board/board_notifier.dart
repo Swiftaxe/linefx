@@ -1,9 +1,11 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:algrafx/features/board/board_state.dart';
 import 'package:algrafx/features/board/drawing/point.dart';
 import 'package:algrafx/features/board/drawing/point_animator.dart';
 import 'package:algrafx/features/board/board_providers.dart';
+import 'package:algrafx/features/board/swipe/swipe_config.dart';
 
 class BoardNotifier extends Notifier<BoardState> {
   late PointAnimator _pointAnimator;
@@ -50,5 +52,64 @@ class BoardNotifier extends Notifier<BoardState> {
         .map((segment) =>
             segment.skip(max(0, segment.length - _maxPoints)).toList())
         .toList();
+  }
+
+  // Two-finger swipe: Start dragging imprints
+  void startImprintDrag() {
+    state = state.copyWith(imprintOffset: Offset.zero);
+  }
+
+  // Two-finger swipe: Update imprint offset
+  void updateImprintOffset(Offset delta) {
+    final newOffset = state.imprintOffset + delta;
+    state = state.copyWith(imprintOffset: newOffset);
+  }
+
+  // Two-finger swipe: End drag - delete or cancel
+  void endImprintDrag({
+    required double velocity,
+    required double distance,
+    required Size screenSize,
+    required SwipeDirection direction,
+  }) {
+    if (SwipeConfig.shouldDelete(
+      velocity: velocity,
+      distance: distance,
+      screenSize: screenSize,
+    )) {
+      tossAndFadeImprints();
+    } else {
+      cancelImprintDrag();
+    }
+  }
+
+  // Animate toss and fade, then clear imprints
+  void tossAndFadeImprints() {
+    // Start fade animation
+    state = state.copyWith(imprintOpacity: 0.0);
+    
+    // Clear imprints after fade completes
+    // Note: This will be handled by AnimationController in Board widget
+    // which will call clearAllImprints() after animation completes
+  }
+
+  // Clear all imprints
+  void clearAllImprints() {
+    // Reset imprints to match current segments structure
+    final emptyImprints = List.generate(
+      state.segments.length,
+      (_) => <Point>[],
+    );
+    
+    state = state.copyWith(
+      imprintSegments: emptyImprints,
+      imprintOffset: Offset.zero,
+      imprintOpacity: 1.0,
+    );
+  }
+
+  // Cancel drag - reset offset
+  void cancelImprintDrag() {
+    state = state.copyWith(imprintOffset: Offset.zero);
   }
 }

@@ -10,6 +10,21 @@ class MockCanvas extends Fake implements Canvas {
   final List<String> calls = [];
 
   @override
+  void save() {
+    calls.add('save');
+  }
+
+  @override
+  void restore() {
+    calls.add('restore');
+  }
+
+  @override
+  void translate(double dx, double dy) {
+    calls.add('translate($dx, $dy)');
+  }
+
+  @override
   void drawCircle(Offset c, double radius, Paint paint) {
     calls.add('drawCircle($c, $radius)');
   }
@@ -151,9 +166,7 @@ void main() {
     test('given empty segments when shouldRepaint then returns false', () {
       // given
       final painter1 = Painter([], []);
-      final painter2 = Painter([
-        [Point(Offset(10, 20), Offset.zero)]
-      ], []);
+      final painter2 = Painter([], []);
 
       // when
       final result = painter1.shouldRepaint(painter2);
