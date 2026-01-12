@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'constants.dart';
 import 'features/board/board_providers.dart';
@@ -24,10 +25,15 @@ class _BoardState extends ConsumerState<Board> with TickerProviderStateMixin {
   bool _isImprintDragging = false;
   Offset _dragStartPosition = Offset.zero;
   Offset _totalDragDelta = Offset.zero;
+  bool _isShiftPressed = false;
+
+  // Shader for paper crumble effect
+  FragmentShader? _crumbleShader;
 
   @override
   void initState() {
     super.initState();
+    _loadShader();
 
     _animationController = AnimationController(
       vsync: this,
@@ -44,13 +50,36 @@ class _BoardState extends ConsumerState<Board> with TickerProviderStateMixin {
   }
 
   void _updatePoints() {
-    ref.read(boardNotifierProvider.notifier).updatePoints();
+    if (!mounted) return;
+    try {
+      ref.read(boardNotifierProvider.notifier).updatePoints();
+    } catch (e) {
+      // Provider container disposed - widget is being torn down
+    }
   }
 
   void _onFadeComplete(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
-      ref.read(boardNotifierProvider.notifier).clearAllImprints();
-      _fadeController.reset();
+      if (!mounted) return;
+      try {
+        ref.read(boardNotifierProvider.notifier).clearAllImprints();
+        _fadeController.reset();
+      } catch (e) {
+        // Provider container disposed - widget is being torn down
+      }
+    }
+  }
+
+  Future<void> _loadShader() async {
+    try {
+      final program = await FragmentProgram.fromAsset('shaders/paper_crumble.frag');
+      if (mounted) {
+        setState(() {
+          _crumbleShader = program.fragmentShader();
+        });
+      }
+    } catch (e) {
+      // Shader not available (e.g., in tests) - continue without it
     }
   }
 
@@ -70,9 +99,10 @@ class _BoardState extends ConsumerState<Board> with TickerProviderStateMixin {
 
   // Core action: Update imprint drag
   void _handleImprintDragUpdate(Offset position) {
-    final delta = position - _dragStartPosition;
-    ref.read(boardNotifierProvider.notifier).updateImprintOffset(delta - _totalDragDelta);
-    _totalDragDelta = delta;
+    // Calculate total offset from start position and set it directly
+    final totalOffset = position - _dragStartPosition;
+    ref.read(boardNotifierProvider.notifier).setImprintOffset(totalOffset);
+    _totalDragDelta = totalOffset;
   }
 
   // Core action: End imprint drag
@@ -117,34 +147,54 @@ class _BoardState extends ConsumerState<Board> with TickerProviderStateMixin {
     final state = ref.watch(boardNotifierProvider);
     final segments = ref.watch(cappedSegmentsProvider);
 
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) {
-        // Right-click on mouse/trackpad: immediately delete all imprints
-        if (_isRightClick(event)) {
-          ref.read(boardNotifierProvider.notifier).clearAllImprints();
+    return KeyboardListener(
+      focusNode: FocusNode()..requestFocus(),
+      autofocus: true,
+      onKeyEvent: (event) {
+        if (event.logicalKey == LogicalKeyboardKey.shiftLeft || 
+            event.logicalKey == LogicalKeyboardKey.shiftRight) {
+          setState(() {
+            _isShiftPressed = event is KeyDownEvent || event is KeyRepeatEvent;
+          });
         }
       },
-      child: GestureDetector(
-        // Use only Scale gestures to handle both 1-finger and 2-finger
-        onScaleStart: (details) {
-          if (details.pointerCount == 2) {
-            // Two-finger: Start imprint drag
-            _handleImprintDragStart(details.focalPoint);
-          } else if (details.pointerCount == 1) {
-            // One-finger: Start drawing
-            _handleDrawStart(details.focalPoint);
+      child: Listener(
+      behavior: HitTestBehavior.translucent,
+        onPointerDown: (event) {
+          // Right-click on mouse/trackpad: immediately delete all imprints
+          if (_isRightClick(event)) {
+            ref.read(boardNotifierProvider.notifier).clearAllImprints();
           }
         },
-        onScaleUpdate: (details) {
-          if (_isImprintDragging && details.pointerCount == 2) {
-            // Continue two-finger drag
-            _handleImprintDragUpdate(details.focalPoint);
-          } else if (!_isImprintDragging && details.pointerCount == 1) {
-            // Continue drawing
-            _handleDrawUpdate(details.focalPoint);
-          }
-        },
+        child: GestureDetector(
+        // Use only Scale gestures to handle touch 1-finger and 2-finger
+          onScaleStart: (details) {
+            // Skip if all imprints are empty (just cleared by right-click)
+            final allImprintsEmpty = state.imprintSegments.every((seg) => seg.isEmpty);
+            if (allImprintsEmpty && details.pointerCount == 1) return;
+            
+            if (details.pointerCount == 2) {
+              // Touch: Two-finger detected - start imprint drag
+              _handleImprintDragStart(details.focalPoint);
+            } else if (details.pointerCount == 1) {
+              if (_isShiftPressed && state.imprintSegments.any((seg) => seg.isNotEmpty)) {
+                // Shift + drag: Start imprint manipulation
+                _handleImprintDragStart(details.focalPoint);
+              } else {
+                // Normal drag: Start drawing
+                ref.read(boardNotifierProvider.notifier).startNewSegment();
+              }
+            }
+          },
+          onScaleUpdate: (details) {
+            if (_isImprintDragging) {
+              // Continue imprint drag (either two-finger touch or Shift + drag)
+              _handleImprintDragUpdate(details.focalPoint);
+            } else if (details.pointerCount == 1 && !_isShiftPressed) {
+              // Normal one-finger: Continue drawing
+              _handleDrawUpdate(details.focalPoint);
+            }
+          },
         onScaleEnd: (details) {
           if (_isImprintDragging) {
             // End two-finger drag with velocity check
@@ -159,7 +209,10 @@ class _BoardState extends ConsumerState<Board> with TickerProviderStateMixin {
             state.imprintSegments,
             imprintOffset: state.imprintOffset,
             imprintOpacity: state.imprintOpacity,
+            crumbleShader: _crumbleShader,
+            screenSize: size,
           ),
+        ),
         ),
       ),
     );
@@ -167,8 +220,11 @@ class _BoardState extends ConsumerState<Board> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _animationController.removeListener(_updatePoints);
     _animationController.dispose();
+    _fadeController.removeStatusListener(_onFadeComplete);
     _fadeController.dispose();
+    _crumbleShader?.dispose();
     super.dispose();
   }
 }

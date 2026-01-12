@@ -4,6 +4,7 @@ library;
 import 'dart:ui';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:algrafx/board.dart';
@@ -65,7 +66,7 @@ void main() {
     }
 
     testWidgets(
-      'Given board with imprints, when user right-clicks and drags short distance, then imprints move with cursor and snap back on release',
+      'Given board with imprints, when user right-clicks, then imprints are immediately deleted',
       (tester) async {
         final container = ProviderContainer();
         
@@ -80,9 +81,9 @@ void main() {
 
         await addImprintsToBoard(tester, container);
 
-        // Find the Listener widget
-        final listenerFinder = find.byType(Listener);
-        expect(listenerFinder, findsOneWidget);
+        // Verify imprints exist
+        var state = container.read(boardNotifierProvider);
+        expect(state.imprintSegments, isNotEmpty, reason: 'Should have imprints before right-click');
 
         // Simulate right-click down
         final downEvent = createPointerDownEvent(
@@ -92,40 +93,18 @@ void main() {
         await tester.sendEventToBinding(downEvent);
         await tester.pump();
 
-        // Check that imprint drag started (offset should be zero initially)
-        var state = container.read(boardNotifierProvider);
-        expect(state.imprintOffset, equals(Offset.zero));
-
-        // Simulate drag movement (short distance - 30 pixels)
-        final moveEvent = createPointerMoveEvent(
-          position: const Offset(230, 230),
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.sendEventToBinding(moveEvent);
-        await tester.pump();
-
-        // Check that offset updated
+        // Check that imprints were immediately deleted (all segments should be empty)
         state = container.read(boardNotifierProvider);
-        expect(state.imprintOffset.dx, greaterThan(0));
-        expect(state.imprintOffset.dy, greaterThan(0));
-
-        // Simulate pointer up (should cancel - distance too short)
-        final upEvent = createPointerUpEvent(position: const Offset(230, 230));
-        await tester.sendEventToBinding(upEvent);
-        await tester.pump();
-
-        // Check that offset reset (snap back)
-        state = container.read(boardNotifierProvider);
+        expect(state.imprintSegments.every((segment) => segment.isEmpty), isTrue, 
+          reason: 'Right-click should instantly delete all imprint points');
         expect(state.imprintOffset, equals(Offset.zero));
-        expect(state.imprintOpacity, equals(1.0));
-        expect(state.imprintSegments, isNotEmpty); // Imprints still there
 
         container.dispose();
       },
     );
 
     testWidgets(
-      'Given board with imprints, when user right-clicks and drags far distance (>15% screen width), then imprints move and fade away on release',
+      'Given board with imprints, when user two-finger drags far distance (>15% screen width), then imprints move and fade away on release',
       (tester) async {
         final container = ProviderContainer();
         
@@ -141,27 +120,23 @@ void main() {
         await addImprintsToBoard(tester, container);
 
         final screenSize = tester.getSize(find.byType(Board));
-        final farDistance = screenSize.width * 0.2; // 20% - above threshold
+        final farDistance = screenSize.width * 0.4; // 40% - focal point moves ~20%, above 15% threshold
 
-        // Right-click down
-        final downEvent = createPointerDownEvent(
-          position: const Offset(200, 200),
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.sendEventToBinding(downEvent);
+        // Two-finger drag start
+        final gesture1 = await tester.createGesture();
+        final gesture2 = await tester.createGesture();
+        await gesture1.down(const Offset(200, 200));
+        await gesture2.down(const Offset(210, 200));
         await tester.pump();
 
         // Drag far
-        final moveEvent = createPointerMoveEvent(
-          position: Offset(200 + farDistance, 200),
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.sendEventToBinding(moveEvent);
+        await gesture1.moveTo(Offset(200 + farDistance, 200));
+        await gesture2.moveTo(Offset(210 + farDistance, 200));
         await tester.pump();
 
         // Release
-        final upEvent = createPointerUpEvent(position: Offset(200 + farDistance, 200));
-        await tester.sendEventToBinding(upEvent);
+        await gesture1.up();
+        await gesture2.up();
         await tester.pump();
 
         // Check that fade started (opacity should be 0)
@@ -173,7 +148,7 @@ void main() {
 
         // Check that imprints cleared
         state = container.read(boardNotifierProvider);
-        expect(state.imprintSegments, equals([[]]));
+        expect(state.imprintSegments.every((seg) => seg.isEmpty), isTrue);
         expect(state.imprintOffset, equals(Offset.zero));
         expect(state.imprintOpacity, equals(1.0));
 
@@ -182,7 +157,7 @@ void main() {
     );
 
     testWidgets(
-      'Given board with imprints, when user right-clicks and drags fast, then imprints toss away and fade',
+      'Given board with imprints, when user two-finger drags fast, then imprints toss away and fade',
       (tester) async {
         final container = ProviderContainer();
         
@@ -202,24 +177,23 @@ void main() {
         // In real usage, velocity would be calculated from gesture detector
 
         final screenSize = tester.getSize(find.byType(Board));
-        final mediumDistance = screenSize.width * 0.16; // Just above threshold
+        final mediumDistance = screenSize.width * 0.32; // Focal point moves ~16%, just above 15% threshold
 
-        final downEvent = createPointerDownEvent(
-          position: const Offset(200, 200),
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.sendEventToBinding(downEvent);
+        // Two-finger drag start
+        final gesture1 = await tester.createGesture();
+        final gesture2 = await tester.createGesture();
+        await gesture1.down(const Offset(200, 200));
+        await gesture2.down(const Offset(210, 200));
         await tester.pump();
 
-        final moveEvent = createPointerMoveEvent(
-          position: Offset(200 + mediumDistance, 200),
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.sendEventToBinding(moveEvent);
+        // Drag medium distance
+        await gesture1.moveTo(Offset(200 + mediumDistance, 200));
+        await gesture2.moveTo(Offset(210 + mediumDistance, 200));
         await tester.pump();
 
-        final upEvent = createPointerUpEvent(position: Offset(200 + mediumDistance, 200));
-        await tester.sendEventToBinding(upEvent);
+        // Release
+        await gesture1.up();
+        await gesture2.up();
         await tester.pump();
 
         // Should trigger deletion
@@ -277,7 +251,7 @@ void main() {
     );
 
     testWidgets(
-      'Given board with imprints being dragged, when user left-clicks during right-drag, then drawing does NOT start (right-drag continues)',
+      'Given board with imprints being dragged with two fingers, when drag continues, then offset updates',
       (tester) async {
         final container = ProviderContainer();
         
@@ -292,38 +266,28 @@ void main() {
 
         await addImprintsToBoard(tester, container);
 
-        // Start right-click drag
-        final rightDownEvent = createPointerDownEvent(
-          position: const Offset(200, 200),
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.sendEventToBinding(rightDownEvent);
-        await tester.pump();
-
-        // Move right-drag
-        final rightMoveEvent = createPointerMoveEvent(
-          position: const Offset(250, 250),
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.sendEventToBinding(rightMoveEvent);
+        // Start two-finger drag
+        final pointer1 = TestPointer(1);
+        final pointer2 = TestPointer(2);
+        await tester.sendEventToBinding(pointer1.down(const Offset(200, 200)));
+        await tester.sendEventToBinding(pointer2.down(const Offset(210, 210)));
         await tester.pump();
 
         var state = container.read(boardNotifierProvider);
-        final offsetDuringDrag = state.imprintOffset;
-        expect(offsetDuringDrag, isNot(equals(Offset.zero)));
+        expect(state.imprintOffset, equals(Offset.zero));
 
-        // Try to left-click (different pointer) - this should not interfere
-        final leftDownEvent = createPointerDownEvent(
-          position: const Offset(100, 100),
-          buttons: kPrimaryButton,
-        );
-        await tester.sendEventToBinding(leftDownEvent);
+        // Move both fingers
+        await tester.sendEventToBinding(pointer1.move(const Offset(250, 200)));
+        await tester.sendEventToBinding(pointer2.move(const Offset(260, 210)));
         await tester.pump();
 
-        // Imprint drag should still be active
+        // Offset should have updated
         state = container.read(boardNotifierProvider);
-        expect(state.imprintOffset, equals(offsetDuringDrag));
+        expect(state.imprintOffset, isNot(equals(Offset.zero)));
 
+        // Cleanup
+        await tester.sendEventToBinding(pointer1.up());
+        await tester.sendEventToBinding(pointer2.up());
         container.dispose();
       },
     );
@@ -463,7 +427,7 @@ void main() {
         await addImprintsToBoard(tester, container);
 
         final screenSize = tester.getSize(find.byType(Board));
-        final farDistance = screenSize.width * 0.2; // Above threshold
+        final farDistance = screenSize.width * 0.4; // Focal point moves ~20%, above 15% threshold
 
         // Two-finger gesture
         final TestGesture gesture = await tester.startGesture(const Offset(200, 200));
@@ -504,7 +468,7 @@ void main() {
         await addImprintsToBoard(tester, container);
 
         final screenSize = tester.getSize(find.byType(Board));
-        final farDistance = screenSize.width * 0.18; // Well above 15% threshold
+        final farDistance = screenSize.width * 0.36; // Focal point moves ~18%, well above 15% threshold
 
         // Two-finger drag
         final TestGesture gesture = await tester.startGesture(const Offset(200, 200));
@@ -590,7 +554,6 @@ void main() {
 
         // In current implementation, this would stop drawing but not start imprint drag
         // (because imprint drag requires starting with 2 fingers, not adding a finger mid-gesture)
-        var state = container.read(boardNotifierProvider);
         
         // The behavior here depends on implementation details
         // At minimum, should not crash
@@ -649,7 +612,7 @@ void main() {
     );
 
     testWidgets(
-      'Given imprints being dragged with right-click, when drag released above threshold, then opacity goes to 0.0 and imprints clear after 400ms',
+      'Given imprints being dragged with two fingers far, when drag released, then opacity goes to 0.0 and imprints clear after 400ms',
       (tester) async {
         final container = ProviderContainer();
         
@@ -665,25 +628,22 @@ void main() {
         await addImprintsToBoard(tester, container);
 
         final screenSize = tester.getSize(find.byType(Board));
-        final farDistance = screenSize.width * 0.2;
+        final farDistance = screenSize.width * 0.4; // Focal point moves ~20%, above 15% threshold
 
-        // Right-click drag (far)
-        final downEvent = createPointerDownEvent(
-          position: const Offset(200, 200),
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.sendEventToBinding(downEvent);
+        // Two-finger drag (far)
+        final pointer1 = TestPointer(1);
+        final pointer2 = TestPointer(2);
+        
+        await tester.sendEventToBinding(pointer1.down(const Offset(200, 200)));
+        await tester.sendEventToBinding(pointer2.down(const Offset(210, 210)));
         await tester.pump();
 
-        final moveEvent = createPointerMoveEvent(
-          position: Offset(200 + farDistance, 200),
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.sendEventToBinding(moveEvent);
+        await tester.sendEventToBinding(pointer1.move(Offset(200 + farDistance, 200)));
+        await tester.sendEventToBinding(pointer2.move(Offset(210 + farDistance, 210)));
         await tester.pump();
 
-        final upEvent = createPointerUpEvent(position: Offset(200 + farDistance, 200));
-        await tester.sendEventToBinding(upEvent);
+        await tester.sendEventToBinding(pointer1.up());
+        await tester.sendEventToBinding(pointer2.up());
         await tester.pump();
 
         // Should start fade
@@ -696,7 +656,7 @@ void main() {
 
         // Should be cleared
         state = container.read(boardNotifierProvider);
-        expect(state.imprintSegments, equals([[]]));
+        expect(state.imprintSegments.every((seg) => seg.isEmpty), isTrue);
         expect(state.imprintOffset, equals(Offset.zero));
         expect(state.imprintOpacity, equals(1.0));
 

@@ -26,25 +26,35 @@ class BoardNotifier extends Notifier<BoardState> {
       if (i == state.segments.length - 1) {
         // Last segment - add the point
         updatedSegments.add([...state.segments[i], point]);
-        imprintSegments.add([...state.imprintSegments[i], point]);
+        // Only add to imprints if they exist (might be cleared)
+        if (i < state.imprintSegments.length) {
+          imprintSegments.add([...state.imprintSegments[i], point]);
+        } else {
+          imprintSegments.add([point]);
+        }
       } else {
         updatedSegments.add(state.segments[i]);
-        imprintSegments.add(state.imprintSegments[i]);
+        // Only copy imprints if they exist
+        if (i < state.imprintSegments.length) {
+          imprintSegments.add(state.imprintSegments[i]);
+        } else {
+          imprintSegments.add([]);
+        }
       }
     }
-    state = BoardState(segments: updatedSegments, imprintSegments: imprintSegments);
+    state = state.copyWith(segments: updatedSegments, imprintSegments: imprintSegments);
   }
 
   void startNewSegment() {
     final updatedSegments = <List<Point>>[...state.segments, []];
     final imprintSegments = <List<Point>>[...state.imprintSegments, []];
-    state = BoardState(segments: updatedSegments, imprintSegments: imprintSegments);
+    state = state.copyWith(segments: updatedSegments, imprintSegments: imprintSegments);
   }
 
   void updatePoints() {
     final updatedSegments = _pointAnimator.updatePoints(state.segments);
     // Imprints should NEVER animate - they stay frozen!
-    state = BoardState(segments: updatedSegments, imprintSegments: state.imprintSegments);
+    state = state.copyWith(segments: updatedSegments);
   }
 
   List<List<Point>> getCappedSegments() {
@@ -61,8 +71,14 @@ class BoardNotifier extends Notifier<BoardState> {
 
   // Two-finger swipe: Update imprint offset
   void updateImprintOffset(Offset delta) {
+    // Delta is incremental - add it to current offset
     final newOffset = state.imprintOffset + delta;
     state = state.copyWith(imprintOffset: newOffset);
+  }
+  
+  // Set absolute imprint offset (used during drag)
+  void setImprintOffset(Offset offset) {
+    state = state.copyWith(imprintOffset: offset);
   }
 
   // Two-finger swipe: End drag - delete or cancel
@@ -95,7 +111,7 @@ class BoardNotifier extends Notifier<BoardState> {
 
   // Clear all imprints
   void clearAllImprints() {
-    // Reset imprints to match current segments structure
+    // Reset imprints to match current segments structure (empty segments)
     final emptyImprints = List.generate(
       state.segments.length,
       (_) => <Point>[],

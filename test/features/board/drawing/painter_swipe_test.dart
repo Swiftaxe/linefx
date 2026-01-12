@@ -44,13 +44,14 @@ void main() {
       final imprints = [
         [Point(const Offset(10, 20), Offset.zero)]
       ];
+      final size = const Size(400, 800);
       final painter = Painter(
         [],
         imprints,
         imprintOffset: const Offset(50, 100),
+        screenSize: size,
       );
       final canvas = MockCanvas();
-      final size = const Size(400, 800);
 
       // when
       painter.paint(canvas, size);
@@ -67,13 +68,14 @@ void main() {
       final imprints = [
         [Point(const Offset(10, 20), Offset.zero)]
       ];
+      final size = const Size(400, 800);
       final painter = Painter(
         [],
         imprints,
         imprintOpacity: 0.5,
+        screenSize: size,
       );
       final canvas = MockCanvas();
-      final size = const Size(400, 800);
 
       // when
       painter.paint(canvas, size);
@@ -95,10 +97,11 @@ void main() {
         [Point(const Offset(10, 20), Offset.zero)]
       ];
 
-      final painter1 = Painter(segments, imprints, imprintOffset: const Offset(50, 100));
-      final painter2 = Painter(segments, imprints, imprintOffset: const Offset(60, 110));
-      final painter3 = Painter(segments, imprints, imprintOpacity: 0.5);
-      final painter4 = Painter(segments, imprints, imprintOpacity: 1.0);
+      final size = const Size(400, 800);
+      final painter1 = Painter(segments, imprints, imprintOffset: const Offset(50, 100), screenSize: size);
+      final painter2 = Painter(segments, imprints, imprintOffset: const Offset(60, 110), screenSize: size);
+      final painter3 = Painter(segments, imprints, imprintOpacity: 0.5, screenSize: size);
+      final painter4 = Painter(segments, imprints, imprintOpacity: 1.0, screenSize: size);
 
       // when/then - Different offset
       expect(painter1.shouldRepaint(painter2), isTrue);
